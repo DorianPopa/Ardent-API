@@ -12,13 +12,18 @@ namespace Ardent_API
         }
 
         public DbSet<User> Users { get; set; }
-        //public DbSet<Project> Projects { get; set; }
+        public DbSet<Project> Projects { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             builder.Entity<User>()
                 .HasIndex(u => u.Username)
                 .IsUnique();
+
+            builder.Entity<Project>()
+                .HasOne(p => p.Client);
+            builder.Entity<Project>()
+                .HasOne(p => p.Designer);
         }
     }
 }
