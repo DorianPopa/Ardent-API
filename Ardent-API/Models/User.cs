@@ -34,7 +34,7 @@ namespace Ardent_API.Models
         public string PasswordHash { get; set; }
 
         [Required]
-        [Range(0, 2)]
+        [Range(0, 2, ErrorMessage = "Role value must be 0, 1 or 2")]
         public int Role { get; set; }
         // 0 = admin, 1 = designer, 2 = client
 

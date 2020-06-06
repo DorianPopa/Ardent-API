@@ -39,11 +39,12 @@ namespace Ardent_API.Services
             return _userRepository.GetAllUsers().Result;
         }
 
-        public User ValidateCredentials(User user)
+        public User ValidateCredentials(AuthenticationModel authenticationData)
         {
-            User storedUser = _userRepository.GetUserByUsername(user.Username);
+            User storedUser = _userRepository.GetUserByUsername(authenticationData.Username);
+            string hashedPassword = Hasher.HashString(authenticationData.PasswordPlain);
 
-            if(storedUser == null || !(Hasher.HashString(user.PasswordHash).Equals(storedUser.PasswordHash)))
+            if (storedUser == null || !(hashedPassword.Equals(storedUser.PasswordHash)))
             {
                 _logger.LogError("Invalid credentials\n\n");
                 throw new ApiException(400, "Invalid credentials");

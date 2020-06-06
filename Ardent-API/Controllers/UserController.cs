@@ -34,7 +34,7 @@ namespace Ardent_API.Controllers
             try
             {
                 User createdUser = _userService.CreateUser(user);
-                return Created("User created", createdUser);
+                return Created("/login", createdUser);
             }
             catch(ApiException e)
             {
@@ -47,13 +47,13 @@ namespace Ardent_API.Controllers
 
         [HttpPost]
         [Route("/login")]
-        public IActionResult Login([FromBody] User user)
+        public IActionResult Login([FromBody] AuthenticationModel authenticationData)
         {
-            _logger.LogInformation("POST request for login with Username {0}\n\n", user.Username);
+            _logger.LogInformation("POST request for login with Username {0}\n\n", authenticationData.Username);
 
             try
             {
-                User validUser = _userService.ValidateCredentials(user);
+                User validUser = _userService.ValidateCredentials(authenticationData);
                 Security.JWT jwt = _authenticationService.GenerateJWT(validUser.Id, validUser.Username);
                 return Ok(jwt);
             }
