@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using Ardent_API.Security;
 
 namespace Ardent_API.Models
 {
@@ -8,16 +9,16 @@ namespace Ardent_API.Models
     {
         private User() { }
 
-        public static User Create(string username, string passwordHash, int role)
+        public static User Create(string username, string password, int role)
         {
-            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(passwordHash) || (role < 0 && role > 2))
+            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password) || (role < 0 && role > 2))
                 throw new ArgumentException();
 
             return new User
             {
                 Id = Guid.NewGuid(),
                 Username = username,
-                PasswordHash = passwordHash,
+                PasswordHash = Hasher.HashString(password),
                 Role = role
             };
         }
@@ -37,6 +38,6 @@ namespace Ardent_API.Models
         public int Role { get; set; }
         // 0 = admin, 1 = designer, 2 = client
 
-        public virtual ICollection<Project> Projects { get; set; }
+        //public virtual ICollection<Project> Projects { get; set; }
     }
 }

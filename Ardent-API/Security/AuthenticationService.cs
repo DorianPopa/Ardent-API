@@ -5,7 +5,6 @@ using JWT.Algorithms;
 using JWT.Builder;
 using JWT.Exceptions;
 
-
 namespace Ardent_API.Security
 {
     public class AuthenticationService : IAuthenticationService
@@ -20,7 +19,7 @@ namespace Ardent_API.Security
 
         public JWT GenerateJWT(Guid userId, string username)
         {
-            string token = new JwtBuilder()
+            var token = new JwtBuilder()
                 .WithAlgorithm(new HMACSHA256Algorithm())
                 .WithSecret(Secret)
                 .AddClaim("exp", DateTimeOffset.UtcNow.AddHours(12).ToUnixTimeSeconds())
@@ -35,6 +34,7 @@ namespace Ardent_API.Security
             try
             {
                 IDictionary<string, object> payload = new JwtBuilder()
+                    .WithAlgorithm(new HMACSHA256Algorithm())
                     .WithSecret(Secret)
                     .MustVerifySignature()
                     .Decode<IDictionary<string, object>>(token);

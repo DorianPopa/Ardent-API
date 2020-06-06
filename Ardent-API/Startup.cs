@@ -5,6 +5,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Ardent_API.Security;
+using Ardent_API.Services;
+using Ardent_API.Repositories;
 
 namespace Ardent_API
 {
@@ -39,11 +41,14 @@ namespace Ardent_API
              */
             
             services.AddTransient<IAuthenticationService, AuthenticationService>();
+            services.AddTransient<UserService>();
             // Endpoint user and project services
 
             /*
              * Repository services
              */
+
+            services.AddTransient<UserRepository>();
         }
 
 
