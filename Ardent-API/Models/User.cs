@@ -1,27 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using Ardent_API.Security;
 
 namespace Ardent_API.Models
 {
     public class User
     {
         private User() { }
-
-        public static User Create(string username, string password, int role)
-        {
-            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password) || (role < 0 && role > 2))
-                throw new ArgumentException();
-
-            return new User
-            {
-                Id = Guid.NewGuid(),
-                Username = username,
-                PasswordHash = Hasher.HashString(password),
-                Role = role
-            };
-        }
 
         [Required]
         public Guid Id { get; set; }
