@@ -19,11 +19,11 @@ namespace Ardent_API.Repositories
             _context = context;
         }
 
-        public virtual User CreateUser(User user) 
+        public virtual async Task<User> CreateUser(User user) 
         {
             _context.Users.Add(user);
 
-            var result = _context.SaveChanges();
+            var result = await _context.SaveChangesAsync();
             if (result == 0)
             {
                 _logger.LogError("Server error! User with Id {0} not saved into database\n\n", user.Id);
@@ -33,14 +33,14 @@ namespace Ardent_API.Repositories
             return user;
         }
 
-        public virtual User GetUserById(Guid id)
+        public virtual async Task<User> GetUserById(Guid id)
         {
-            return _context.Users.FirstOrDefault(u => u.Id == id);
+            return await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
         }
 
-        public virtual User GetUserByUsername(string username)
+        public virtual async Task<User> GetUserByUsername(string username)
         {
-            return _context.Users.FirstOrDefault(u => u.Username == username);
+            return await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
         }
 
         public virtual async Task<List<User>> GetAllUsers()

@@ -21,13 +21,13 @@ namespace Ardent_API.Services
 
         public User CreateUser(User newUser)
         {
-            if(_userRepository.GetUserByUsername(newUser.Username) != null)
+            if(_userRepository.GetUserByUsername(newUser.Username).Result != null)
             {
                 _logger.LogError("Username {0} already in the database\n\n", newUser.Username);
                 throw new ApiException(400, "Username " + newUser.Username + " already in database");
             }
             newUser.PasswordHash = Hasher.HashString(newUser.PasswordHash);
-            User createdUser = _userRepository.CreateUser(newUser);
+            User createdUser = _userRepository.CreateUser(newUser).Result;
             if(createdUser == null)
                 throw new ApiException(500, "User could not be created");
 
@@ -41,7 +41,7 @@ namespace Ardent_API.Services
 
         public User ValidateCredentials(AuthenticationModel authenticationData)
         {
-            User storedUser = _userRepository.GetUserByUsername(authenticationData.Username);
+            User storedUser = _userRepository.GetUserByUsername(authenticationData.Username).Result;
             string hashedPassword = Hasher.HashString(authenticationData.PasswordPlain);
 
             if (storedUser == null || !(hashedPassword.Equals(storedUser.PasswordHash)))
