@@ -4,13 +4,13 @@ using Ardent_API.Repositories;
 using Ardent_API.Security;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Ardent_API.Services
 {
     public class UserService
     {
         private readonly ILogger<UserService> _logger;
-
         private readonly UserRepository _userRepository;
 
         public UserService(ILogger<UserService> logger, UserRepository userRepository)
@@ -19,7 +19,7 @@ namespace Ardent_API.Services
             _userRepository = userRepository;
         }
 
-        public User CreateUser(User newUser)
+        public async Task<User> CreateUser(User newUser)
         {
             if(_userRepository.GetUserByUsername(newUser.Username).Result != null)
             {
@@ -27,16 +27,17 @@ namespace Ardent_API.Services
                 throw new ApiException(400, "Username " + newUser.Username + " already in database");
             }
             newUser.PasswordHash = Hasher.HashString(newUser.PasswordHash);
-            User createdUser = _userRepository.CreateUser(newUser).Result;
+
+            User createdUser = await _userRepository.CreateUser(newUser);
             if(createdUser == null)
                 throw new ApiException(500, "User could not be created");
 
             return createdUser;
         }
 
-        public List<User> GetAllUsers()
+        public async Task<List<User>> GetAllUsers()
         {
-            return _userRepository.GetAllUsers().Result;
+            return await _userRepository.GetAllUsers();
         }
 
         public User ValidateCredentials(AuthenticationModel authenticationData)

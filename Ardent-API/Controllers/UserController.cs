@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Ardent_API.Errors;
 using Ardent_API.Models;
 using Ardent_API.Security;
@@ -27,14 +28,14 @@ namespace Ardent_API.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreateUser([FromBody] User user)
+        public async Task<IActionResult> CreateUser([FromBody] User user)
         {
             _logger.LogInformation("POST request for saving user with Username {0}\n\n", user.Username);
 
             try
             {
-                User createdUser = _userService.CreateUser(user);
-                return Created("/login", createdUser);
+                User createdUser = await _userService.CreateUser(user);
+                return Created("/", createdUser);
             }
             catch(ApiException e)
             {
@@ -43,6 +44,25 @@ namespace Ardent_API.Controllers
 
                 return StatusCode(StatusCodes.Status500InternalServerError, new InternalServerError(e.Message));
             }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            _logger.LogInformation("GET request for all users\n\n");
+
+            try
+            {
+                var accessToken = Request.Headers["Bearer"];
+                var payload = Authorize(accessToken);
+            }
+            catch (ApiException e)
+            {
+                return Unauthorized(new UnauthorizedError(e.Message));
+            }
+
+            List<User> allUsers = await _userService.GetAllUsers();
+            return Ok(allUsers);
         }
 
         [HttpPost]
@@ -62,26 +82,6 @@ namespace Ardent_API.Controllers
                 return BadRequest(new BadRequestError(e.Message));
             }
         }
-
-        [HttpGet]
-        public IActionResult GetAllUsers()
-        {
-            _logger.LogInformation("GET request for all users\n\n");
-
-            try
-            {
-                var accessToken = Request.Headers["Bearer"];
-                var payload = Authorize(accessToken);
-            }
-            catch(ApiException e)
-            {
-                return Unauthorized(new UnauthorizedError(e.Message));
-            }
-
-            List<User> allUsers = _userService.GetAllUsers();
-            return Ok(allUsers);
-        }
-
 
         private IDictionary<string, object> Authorize(string accessToken)
         {

@@ -21,7 +21,7 @@ namespace Ardent_API.Repositories
 
         public virtual async Task<User> CreateUser(User user) 
         {
-            _context.Users.Add(user);
+            await _context.Users.AddAsync(user);
 
             var result = await _context.SaveChangesAsync();
             if (result == 0)
