@@ -42,6 +42,7 @@ namespace Ardent_API
             
             services.AddTransient<IAuthenticationService, AuthenticationService>();
             services.AddTransient<UserService>();
+            services.AddTransient<ProjectService>();
             // Endpoint user and project services
 
             /*
@@ -49,6 +50,7 @@ namespace Ardent_API
              */
 
             services.AddTransient<UserRepository>();
+            services.AddTransient<ProjectRepository>();
         }
 
 
