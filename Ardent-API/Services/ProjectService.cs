@@ -15,6 +15,8 @@ namespace Ardent_API.Services
         private readonly ProjectRepository _projectRepository;
         private readonly UserRepository _userRepository;
 
+        private const string PROJECTS_BASE_DIRECTORY = @".\Projects";
+
         public ProjectService(ILogger<ProjectService> logger, ProjectRepository projectRepository, UserRepository userRepository)
         {
             _logger = logger;
@@ -67,10 +69,12 @@ namespace Ardent_API.Services
             }
 
             string fileHash;
-            SHA256 Sha256 = SHA256.Create();
-            using (Stream stream = newProject.ProjectArchive.OpenReadStream())
+            using (SHA256 Sha256 = SHA256.Create())
             {
-                fileHash = BytesToString(Sha256.ComputeHash(stream));
+                using (Stream stream = newProject.ProjectArchive.OpenReadStream())
+                {
+                    fileHash = BytesToString(Sha256.ComputeHash(stream));
+                }
             }
 
             // Create the Project entry in the database
@@ -81,10 +85,42 @@ namespace Ardent_API.Services
             if (createdProject == null)
                 throw new ApiException(500, "Project could not be created");
 
-            // TODO: save the file into the filesystem
+            // Save the file into the filesystem
+            string projectDirectoryPath = Path.Combine(PROJECTS_BASE_DIRECTORY, createdProject.Id.ToString());
+            try
+            {
+                Directory.CreateDirectory(projectDirectoryPath);
+                _logger.LogInformation("Created new project directory at {0}\n\n", projectDirectoryPath);
+            }
+            catch(Exception e)
+            {
+                _logger.LogError(e.Message);
+                throw new ApiException(500, "Project directory could not be created");
+            }
 
+            string projectArchivePath = Path.Combine(projectDirectoryPath, createdProject.Id.ToString());
+            try
+            {
+                using(Stream stream = new FileStream(projectArchivePath, FileMode.CreateNew))
+                {
+                    await newProject.ProjectArchive.CopyToAsync(stream);
+                }
+            }
+            catch(Exception e)
+            {
+                _logger.LogError(e.Message);
+                throw new ApiException(500, "Project file could not written to the filesystem");
+            }
 
             return createdProject;
+
+            /*
+             * TODO: 
+             * Prevent invalid Database entries when filesystem writing raises an exception
+             * Prevent writing the same project for the same user multiple times
+             * Fix one user creating projects for another one using his Id in the request body
+             * Decrease the number of open streams for the project archive file
+            */
         }
 
         private string BytesToString(byte[] bytes)
