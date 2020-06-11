@@ -118,7 +118,6 @@ namespace Ardent_API.Services
              * TODO: 
              * Prevent invalid Database entries when filesystem writing raises an exception
              * Prevent writing the same project for the same user multiple times
-             * Fix one user creating projects for another one using his Id in the request body
              * Decrease the number of open streams for the project archive file
             */
         }

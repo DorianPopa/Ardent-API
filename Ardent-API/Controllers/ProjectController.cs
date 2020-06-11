@@ -38,6 +38,10 @@ namespace Ardent_API.Controllers
             {
                 var accessToken = Request.Headers["Bearer"];
                 var payload = Authorize(accessToken);
+
+                if (!payload["userId"].ToString().Equals(project.DesignerId.ToString()))
+                    return StatusCode(StatusCodes.Status403Forbidden, 
+                        new ForbiddenError("Cannot create a project for another user"));
             }
             catch(ApiException e)
             {
