@@ -31,29 +31,26 @@ namespace Ardent_API.Controllers
         [Route("upload")]
         public async Task<IActionResult> UploadProject([FromForm] ProjectUploadModel project)
         {
-            _logger.LogInformation("Upload request from user with id {0} for a new project with name {1}\n\n", 
-                project.DesignerId, project.ProjectName);
+            _logger.LogInformation("Upload request for a new project with name {0}\n\n", project.ProjectName);
 
+            IDictionary<string, object> payload;
             try
             {
                 var accessToken = Request.Headers["Bearer"];
-                var payload = Authorize(accessToken);
-
-                if (!payload["userId"].ToString().Equals(project.DesignerId.ToString()))
-                    return StatusCode(StatusCodes.Status403Forbidden, 
-                        new ForbiddenError("Cannot create a project for another user"));
+                payload = Authorize(accessToken);
             }
-            catch(ApiException e)
+            catch (ApiException e)
             {
                 return Unauthorized(new UnauthorizedError(e.Message));
             }
 
             try
             {
-                Project createdProject = await _projectService.CreateProject(project);
+                string designerId = payload["userId"].ToString();
+                Project createdProject = await _projectService.CreateProject(project, designerId);
                 return Created("/", createdProject);
             }
-            catch(ApiException e)
+            catch (ApiException e)
             {
                 if (e.StatusCode == 400)
                     return BadRequest(new BadRequestError(e.Message));
@@ -62,22 +59,38 @@ namespace Ardent_API.Controllers
             }
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetAllProjects()
+        [HttpPatch]
+        [Route("{id}")]
+        public async Task<IActionResult> UpdateProjectData(Guid id, [FromBody] ProjectUpdateFieldsModel updatedFields)
         {
-            _logger.LogInformation("GET request for all projects\n\n");
+            _logger.LogInformation("Update project data request for project with id {0}\n\n", id.ToString());
 
+            IDictionary<string, object> payload;
             try
             {
                 var accessToken = Request.Headers["Bearer"];
-                var payload = Authorize(accessToken);
+                payload = Authorize(accessToken);
             }
             catch (ApiException e)
             {
                 return Unauthorized(new UnauthorizedError(e.Message));
             }
 
-            return Ok();
+            try
+            {
+                string designerId = payload["userId"].ToString();
+                Project project = await _projectService.UpdateProjectData(id, updatedFields, designerId);
+                return Ok(project);
+            }
+            catch(ApiException e)
+            {
+                if (e.StatusCode == 404)
+                    return NotFound(new NotFoundError(e.Message));
+                if (e.StatusCode == 401)
+                    return Unauthorized(new UnauthorizedError(e.Message));
+
+                return StatusCode(StatusCodes.Status500InternalServerError, new InternalServerError(e.Message));
+            }
         }
 
         private IDictionary<string, object> Authorize(string accessToken)

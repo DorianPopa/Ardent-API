@@ -50,8 +50,6 @@ namespace Ardent_API.Services
                 _logger.LogError("Invalid credentials\n\n");
                 throw new ApiException(400, "Invalid credentials");
             }
-
-
             return storedUser;
         }
     }

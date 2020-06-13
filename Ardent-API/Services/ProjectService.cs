@@ -24,14 +24,15 @@ namespace Ardent_API.Services
             _userRepository = userRepository;
         }
 
-        public async Task<Project> CreateProject(ProjectUploadModel newProject)
+        public async Task<Project> CreateProject(ProjectUploadModel newProject, string designerId)
         {
             // Validate the creator
-            User creator = await _userRepository.GetUserById(newProject.DesignerId);
+            Guid creatorId = Guid.Parse(designerId);
+            User creator = await _userRepository.GetUserById(creatorId);
             if (creator == null)
             {
-                _logger.LogError("User with Id {0} not found, cannot create a new project", newProject.DesignerId.ToString());
-                throw new ApiException(404, "User with Id " + newProject.DesignerId.ToString() + " not found");
+                _logger.LogError("User with Id {0} not found, cannot create a new project", creatorId.ToString());
+                throw new ApiException(404, "User with Id " + creatorId.ToString() + " not found");
             }
             if (creator.Role != 0 && creator.Role != 1)
             {
@@ -116,10 +117,46 @@ namespace Ardent_API.Services
 
             /*
              * TODO: 
-             * Prevent invalid Database entries when filesystem writing raises an exception
+             * Prevent invalid Database entries when filesystem writing raises an exception 
              * Prevent writing the same project for the same user multiple times
              * Decrease the number of open streams for the project archive file
             */
+        }
+
+        public async Task<Project> UpdateProjectData(Guid projectId, ProjectUpdateFieldsModel updatedFields, string designerId)
+        {
+            Project project = await _projectRepository.GetProjectById(projectId);
+            if(project == null)
+            {
+                _logger.LogError("Project with Id {0} not found", projectId.ToString());
+                throw new ApiException(404, "Project with Id " + projectId.ToString() + " not found");
+            }
+            if (project.Designer.Id != Guid.Parse(designerId))
+            {
+                _logger.LogError("User with id {0} is unauthorized to modify project with id {1}", designerId, project.Id);
+                throw new ApiException(401, $"Unauthorized to modify the project with id {project.Id}");
+            }
+
+            try
+            {
+                Project updatedProject = await _projectRepository.UpdateProjectData(projectId, updatedFields);
+                return updatedProject;
+            }
+            catch(Exception e)
+            {
+                throw new ApiException(500, e.Message);
+            }
+        }
+
+        public async Task<Project> GetProjectById(Guid id)
+        {
+            Project project = await _projectRepository.GetProjectById(id);
+            if(project == null)
+            {
+                _logger.LogError("Project with Id {0} not found", id.ToString());
+                throw new ApiException(404, "Project with Id " + id.ToString() + " not found");
+            }
+            return project;
         }
 
         private string BytesToString(byte[] bytes)
