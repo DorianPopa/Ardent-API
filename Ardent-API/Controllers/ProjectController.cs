@@ -46,7 +46,7 @@ namespace Ardent_API.Controllers
 
             try
             {
-                string designerId = payload["userId"].ToString();
+                Guid designerId = Guid.Parse(payload["userId"].ToString());
                 Project createdProject = await _projectService.CreateProject(project, designerId);
                 return Created("/", createdProject);
             }
@@ -60,7 +60,7 @@ namespace Ardent_API.Controllers
         }
 
         [HttpPatch]
-        [Route("{id}")]
+        [Route("{id}/data")]
         public async Task<IActionResult> UpdateProjectData(Guid id, [FromBody] ProjectUpdateFieldsModel updatedFields)
         {
             _logger.LogInformation("Update project data request for project with id {0}\n\n", id.ToString());
@@ -78,8 +78,42 @@ namespace Ardent_API.Controllers
 
             try
             {
-                string designerId = payload["userId"].ToString();
+                Guid designerId = Guid.Parse(payload["userId"].ToString());
                 Project project = await _projectService.UpdateProjectData(id, updatedFields, designerId);
+                return Ok(project);
+            }
+            catch(ApiException e)
+            {
+                if (e.StatusCode == 404)
+                    return NotFound(new NotFoundError(e.Message));
+                if (e.StatusCode == 401)
+                    return Unauthorized(new UnauthorizedError(e.Message));
+
+                return StatusCode(StatusCodes.Status500InternalServerError, new InternalServerError(e.Message));
+            }
+        }
+
+        [HttpPatch]
+        [Route("{id}/files")]
+        public async Task<IActionResult> UpdateProjectFiles(Guid id, [FromForm] IFormFile ProjectArchive)
+        {
+            _logger.LogInformation("Update project files request for project with id {0}\n\n", id.ToString());
+
+            IDictionary<string, object> payload;
+            try
+            {
+                var accessToken = Request.Headers["Bearer"];
+                payload = Authorize(accessToken);
+            }
+            catch (ApiException e)
+            {
+                return Unauthorized(new UnauthorizedError(e.Message));
+            }
+
+            try
+            {
+                Guid designerId = Guid.Parse(payload["userId"].ToString());
+                Project project = await _projectService.UpdateProjectFiles(id, designerId, ProjectArchive);
                 return Ok(project);
             }
             catch(ApiException e)

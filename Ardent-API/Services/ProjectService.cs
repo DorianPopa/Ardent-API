@@ -1,6 +1,7 @@
 ﻿using Ardent_API.Errors;
 using Ardent_API.Models;
 using Ardent_API.Repositories;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
@@ -24,15 +25,14 @@ namespace Ardent_API.Services
             _userRepository = userRepository;
         }
 
-        public async Task<Project> CreateProject(ProjectUploadModel newProject, string designerId)
+        public async Task<Project> CreateProject(ProjectUploadModel newProject, Guid designerId)
         {
             // Validate the creator
-            Guid creatorId = Guid.Parse(designerId);
-            User creator = await _userRepository.GetUserById(creatorId);
+            User creator = await _userRepository.GetUserById(designerId);
             if (creator == null)
             {
-                _logger.LogError("User with Id {0} not found, cannot create a new project", creatorId.ToString());
-                throw new ApiException(404, "User with Id " + creatorId.ToString() + " not found");
+                _logger.LogError("User with Id {0} not found, cannot create a new project", designerId.ToString());
+                throw new ApiException(404, "User with Id " + designerId.ToString() + " not found");
             }
             if (creator.Role != 0 && creator.Role != 1)
             {
@@ -40,42 +40,15 @@ namespace Ardent_API.Services
                 throw new ApiException(403, "Insufficient permisions to create a new project");
             }
 
-            // Validate the project file
-            long fileSize = newProject.ProjectArchive.Length;
-            if (fileSize <= 0)
-            {
-                _logger.LogError("The project file is empty");
-                throw new ApiException(400, "Empty project file");
-            }
-
-            // Check if the file is actually a zip archive
-            byte[] fileType = new byte[3];
+            // Validate the file
+            string fileHash;
             try
             {
-                using (Stream fileStream = newProject.ProjectArchive.OpenReadStream())
-                {
-                    await fileStream.ReadAsync(fileType, 0, 2);
-                    if (fileType[0] != 'P' || fileType[1] != 'K')
-                    {
-                        throw new ApiException(400, "Project file is not a zip archive");
-                    }
-                }
+                fileHash = await ValidateFile(newProject.ProjectArchive);
             }
-            catch (Exception e)
+            catch(ApiException e)
             {
-                if (e is ApiException)
-                    throw e;
-                else
-                    throw new ApiException(500, e.Message);
-            }
-
-            string fileHash;
-            using (SHA256 Sha256 = SHA256.Create())
-            {
-                using (Stream stream = newProject.ProjectArchive.OpenReadStream())
-                {
-                    fileHash = BytesToString(Sha256.ComputeHash(stream));
-                }
+                throw e;
             }
 
             // Create the Project entry in the database
@@ -86,31 +59,13 @@ namespace Ardent_API.Services
             if (createdProject == null)
                 throw new ApiException(500, "Project could not be created");
 
-            // Save the file into the filesystem
-            string projectDirectoryPath = Path.Combine(PROJECTS_BASE_DIRECTORY, createdProject.Id.ToString());
             try
             {
-                Directory.CreateDirectory(projectDirectoryPath);
-                _logger.LogInformation("Created new project directory at {0}\n\n", projectDirectoryPath);
+                await WriteFileIntoFilesystem(newProject.ProjectArchive, createdProject.Id);
             }
-            catch(Exception e)
+            catch(ApiException e)
             {
-                _logger.LogError(e.Message);
-                throw new ApiException(500, "Project directory could not be created");
-            }
-
-            string projectArchivePath = Path.Combine(projectDirectoryPath, createdProject.Id.ToString());
-            try
-            {
-                using(Stream stream = new FileStream(projectArchivePath, FileMode.CreateNew))
-                {
-                    await newProject.ProjectArchive.CopyToAsync(stream);
-                }
-            }
-            catch(Exception e)
-            {
-                _logger.LogError(e.Message);
-                throw new ApiException(500, "Project file could not written to the filesystem");
+                throw e;
             }
 
             return createdProject;
@@ -123,17 +78,17 @@ namespace Ardent_API.Services
             */
         }
 
-        public async Task<Project> UpdateProjectData(Guid projectId, ProjectUpdateFieldsModel updatedFields, string designerId)
+        public async Task<Project> UpdateProjectData(Guid projectId, ProjectUpdateFieldsModel updatedFields, Guid designerId)
         {
             Project project = await _projectRepository.GetProjectById(projectId);
-            if(project == null)
+            if (project == null)
             {
                 _logger.LogError("Project with Id {0} not found", projectId.ToString());
                 throw new ApiException(404, "Project with Id " + projectId.ToString() + " not found");
             }
-            if (project.Designer.Id != Guid.Parse(designerId))
+            if (project.Designer.Id != designerId)
             {
-                _logger.LogError("User with id {0} is unauthorized to modify project with id {1}", designerId, project.Id);
+                _logger.LogError("User with id {0} is unauthorized to modify project with id {1}", designerId.ToString(), project.Id);
                 throw new ApiException(401, $"Unauthorized to modify the project with id {project.Id}");
             }
 
@@ -142,16 +97,51 @@ namespace Ardent_API.Services
                 Project updatedProject = await _projectRepository.UpdateProjectData(projectId, updatedFields);
                 return updatedProject;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 throw new ApiException(500, e.Message);
             }
         }
 
+        public async Task<Project> UpdateProjectFiles(Guid projectId, Guid designerId, IFormFile updatedArchive)
+        {
+            Project project = await _projectRepository.GetProjectById(projectId);
+            if (project == null)
+            {
+                _logger.LogError("Project with Id {0} not found", projectId.ToString());
+                throw new ApiException(404, "Project with Id " + projectId.ToString() + " not found");
+            }
+            if (project.Designer.Id != designerId)
+            {
+                _logger.LogError("User with id {0} is unauthorized to modify project with id {1}", designerId.ToString(), project.Id);
+                throw new ApiException(401, $"Unauthorized to modify the project with id {project.Id}");
+            }
+
+            // Validate the file and write the new archive into the filesystem
+            // Update the archive checksum into the database
+            string fileHash;
+            try
+            {
+                fileHash = await ValidateFile(updatedArchive);
+                await WriteFileIntoFilesystem(updatedArchive, project.Id);
+                project = await _projectRepository.UpdateProjectHash(projectId, fileHash);
+            }
+            catch (ApiException e)
+            {
+                throw e;
+            }
+            catch (Exception e)
+            {
+                throw new ApiException(500, e.Message);
+            }
+
+            return project;
+        }
+
         public async Task<Project> GetProjectById(Guid id)
         {
             Project project = await _projectRepository.GetProjectById(id);
-            if(project == null)
+            if (project == null)
             {
                 _logger.LogError("Project with Id {0} not found", id.ToString());
                 throw new ApiException(404, "Project with Id " + id.ToString() + " not found");
@@ -164,6 +154,83 @@ namespace Ardent_API.Services
             string result = "";
             foreach (byte b in bytes) result += b.ToString("x2");
             return result;
+        }
+
+        private async Task<string> ValidateFile(IFormFile file)
+        {
+            // Check if the file is not empty
+            long fileSize = file.Length;
+            if (fileSize <= 0)
+            {
+                _logger.LogError("The project file is empty");
+                throw new ApiException(400, "Empty project file");
+            }
+
+            // Check if the file is actually a zip archive
+            byte[] fileType = new byte[3];
+            try
+            {
+                using (Stream fileStream = file.OpenReadStream())
+                {
+                    await fileStream.ReadAsync(fileType, 0, 2);
+                    if (fileType[0] != 'P' || fileType[1] != 'K')
+                    {
+                        _logger.LogError("The project file is not a zip archive");
+                        throw new ApiException(400, "Project file is not a zip archive");
+                    }
+                }
+            }
+            catch (ApiException e)
+            {
+                throw e;
+            }
+            catch (Exception e)
+            {
+                throw new ApiException(500, e.Message);
+            }
+
+            // Compute the checksum of the file
+            string fileHash;
+            using (SHA256 Sha256 = SHA256.Create())
+            {
+                using (Stream stream = file.OpenReadStream())
+                {
+                    fileHash = BytesToString(Sha256.ComputeHash(stream));
+                }
+            }
+            return fileHash;
+        }
+
+        private async Task WriteFileIntoFilesystem(IFormFile ProjectArchive, Guid projectId)
+        {
+            // Create a new directory for the project archive
+            string projectDirectoryPath = Path.Combine(PROJECTS_BASE_DIRECTORY, projectId.ToString());
+            try
+            {
+                Directory.CreateDirectory(projectDirectoryPath);
+                _logger.LogInformation("Created new project directory at {0}\n\n", projectDirectoryPath);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e.Message);
+                throw new ApiException(500, "Project directory could not be created");
+            }
+
+            // Create the final path of the archive based on the project id and write the archived data 
+            // into the filesystem
+            string projectArchivePath = Path.Combine(projectDirectoryPath, projectId.ToString());
+            try
+            {
+                using (Stream stream = new FileStream(projectArchivePath, FileMode.Create))
+                {
+                    await ProjectArchive.CopyToAsync(stream);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e.Message);
+                throw new ApiException(500, "Project file could not written to the filesystem");
+            }
         }
     }
 }

@@ -53,6 +53,27 @@ namespace Ardent_API.Repositories
             return projectToBeUpdated;
         }
 
+        public virtual async Task<Project> UpdateProjectHash(Guid projectId, string newHash)
+        {
+            Project projectToBeUpdated = await _context.Projects.FirstOrDefaultAsync(p => p.Id == projectId);
+            if (projectToBeUpdated == null)
+            {
+                _logger.LogError("Project with Id {0} could not be found in the database", projectId);
+                throw new Exception($"Project with Id {projectId} could not be found in the database");
+            }
+            projectToBeUpdated.ProjectHash = newHash;
+            projectToBeUpdated.UpdatedAt = DateTime.UtcNow;
+
+            var result = await _context.SaveChangesAsync();
+            if (result == 0)
+            {
+                _logger.LogError("Server error! Project with Id {0} could not be updated\n\n", projectToBeUpdated.Id);
+                throw new Exception($"Server error! Project {projectToBeUpdated.Id} could not be updated");
+            }
+            _logger.LogInformation("Project with Id {0} updated into database\n\n", projectToBeUpdated.Id);
+            return projectToBeUpdated;
+        }
+
         public virtual async Task<Project> GetProjectById(Guid id)
         {
             Project project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == id);
@@ -61,5 +82,6 @@ namespace Ardent_API.Repositories
 
             return project;
         }
+
     }
 }
