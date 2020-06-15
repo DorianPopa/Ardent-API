@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Net.Mime;
 using System.Threading.Tasks;
 using Ardent_API.Errors;
 using Ardent_API.Models;
@@ -88,6 +90,8 @@ namespace Ardent_API.Controllers
                     return NotFound(new NotFoundError(e.Message));
                 if (e.StatusCode == 401)
                     return Unauthorized(new UnauthorizedError(e.Message));
+                if (e.StatusCode == 400)
+                    return BadRequest(new BadRequestError(e.Message));
 
                 return StatusCode(StatusCodes.Status500InternalServerError, new InternalServerError(e.Message));
             }
@@ -117,6 +121,40 @@ namespace Ardent_API.Controllers
                 return Ok(project);
             }
             catch(ApiException e)
+            {
+                if (e.StatusCode == 404)
+                    return NotFound(new NotFoundError(e.Message));
+                if (e.StatusCode == 401)
+                    return Unauthorized(new UnauthorizedError(e.Message));
+
+                return StatusCode(StatusCodes.Status500InternalServerError, new InternalServerError(e.Message));
+            }
+        }
+
+        [HttpGet]
+        [Route("{id}/files")]
+        public async Task<IActionResult> GetProjectFiles(Guid id)
+        {
+            _logger.LogInformation("Get project files request for project with id {0}\n\n", id.ToString());
+
+            IDictionary<string, object> payload;
+            try
+            {
+                var accessToken = Request.Headers["Bearer"];
+                payload = Authorize(accessToken);
+            }
+            catch (ApiException e)
+            {
+                return Unauthorized(new UnauthorizedError(e.Message));
+            }
+
+            try
+            {
+                Guid requesterId = Guid.Parse(payload["userId"].ToString());
+                byte[] fileBytes = await _projectService.GetProjectFilesById(id, requesterId);
+                return File(fileBytes, "application/octet-stream");
+            }
+            catch (ApiException e)
             {
                 if (e.StatusCode == 404)
                     return NotFound(new NotFoundError(e.Message));

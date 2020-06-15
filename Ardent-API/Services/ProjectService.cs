@@ -92,15 +92,43 @@ namespace Ardent_API.Services
                 throw new ApiException(401, $"Unauthorized to modify the project with id {project.Id}");
             }
 
-            try
+            Project updatedProject = null;
+            User client;
+            if (updatedFields.ClientUsername != null)
             {
-                Project updatedProject = await _projectRepository.UpdateProjectData(projectId, updatedFields);
-                return updatedProject;
+                client = await _userRepository.GetUserByUsername(updatedFields.ClientUsername);
+                if(client == null)
+                {
+                    _logger.LogError("User with Username {0} not found", updatedFields.ClientUsername);
+                    throw new ApiException(404, "User with Username " + updatedFields.ClientUsername + " not found");
+                }
+
+                try
+                {
+                    updatedProject = await _projectRepository.UpdateProjectClient(projectId, client);
+                }
+                catch (Exception e)
+                {
+                    throw new ApiException(500, e.Message);
+                }
             }
-            catch (Exception e)
+            if (updatedFields.Name != null)
             {
-                throw new ApiException(500, e.Message);
+                try
+                {
+                    updatedProject = await _projectRepository.UpdateProjectData(projectId, updatedFields);
+                }
+                catch (Exception e)
+                {
+                    throw new ApiException(500, e.Message);
+                }
             }
+            if(updatedProject == null)
+            {
+                throw new ApiException(400, "Client username and project fields are both null");
+            }
+
+            return updatedProject;
         }
 
         public async Task<Project> UpdateProjectFiles(Guid projectId, Guid designerId, IFormFile updatedArchive)
@@ -138,13 +166,50 @@ namespace Ardent_API.Services
             return project;
         }
 
-        public async Task<Project> GetProjectById(Guid id)
+        public async Task<byte[]> GetProjectFilesById(Guid projectId, Guid requesterId)
         {
-            Project project = await _projectRepository.GetProjectById(id);
+            Project project = await _projectRepository.GetProjectById(projectId);
             if (project == null)
             {
-                _logger.LogError("Project with Id {0} not found", id.ToString());
-                throw new ApiException(404, "Project with Id " + id.ToString() + " not found");
+                _logger.LogError("Project with Id {0} not found", projectId.ToString());
+                throw new ApiException(404, "Project with Id " + projectId.ToString() + " not found");
+            }
+
+            bool hasAccess = false;
+            if(project.Designer != null)
+            {
+                if (project.Designer.Id == requesterId)
+                    hasAccess = true;
+            }
+            if(project.Client != null)
+            {
+                if (project.Client.Id == requesterId)
+                    hasAccess = true;
+            }
+            if (!hasAccess)
+            {
+                _logger.LogError("User with id {0} is unauthorized to access project with id {1}", requesterId.ToString(), project.Id);
+                throw new ApiException(401, $"Unauthorized to access the project with id {project.Id}");
+            }
+
+            try
+            {
+                byte[] fileBytes = await ReadProjectFiles(projectId);
+                return fileBytes;
+            }
+            catch(Exception e)
+            {
+                throw new ApiException(500, e.Message);
+            }
+        }
+
+        public async Task<Project> GetProjectById(Guid projectId)
+        {
+            Project project = await _projectRepository.GetProjectById(projectId);
+            if (project == null)
+            {
+                _logger.LogError("Project with Id {0} not found", projectId.ToString());
+                throw new ApiException(404, "Project with Id " + projectId.ToString() + " not found");
             }
             return project;
         }
@@ -230,6 +295,20 @@ namespace Ardent_API.Services
             {
                 _logger.LogError(e.Message);
                 throw new ApiException(500, "Project file could not written to the filesystem");
+            }
+        }
+
+        private async Task<byte[]> ReadProjectFiles(Guid projectId)
+        {
+            string projectFilePath = Path.Combine(PROJECTS_BASE_DIRECTORY, projectId.ToString(), projectId.ToString());
+            if (File.Exists(projectFilePath))
+            {
+                byte[] b = await File.ReadAllBytesAsync(projectFilePath);
+                return b;
+            }
+            else
+            {
+                throw new ApiException(500, "Project file not found in the filesystem");
             }
         }
     }

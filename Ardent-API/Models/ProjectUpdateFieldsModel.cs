@@ -8,5 +8,6 @@ namespace Ardent_API.Models
     public class ProjectUpdateFieldsModel
     {
         public string Name { get; set; }
+        public string ClientUsername { get; set; }
     }
 }
