@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Net.Mime;
 using System.Threading.Tasks;
 using Ardent_API.Errors;
 using Ardent_API.Models;
@@ -57,6 +55,34 @@ namespace Ardent_API.Controllers
                 if (e.StatusCode == 400)
                     return BadRequest(new BadRequestError(e.Message));
 
+                return StatusCode(StatusCodes.Status500InternalServerError, new InternalServerError(e.Message));
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllProjectsOfUser()
+        {
+            _logger.LogInformation("Get request for all projects of a user\n\n");
+
+            IDictionary<string, object> payload;
+            try
+            {
+                var accessToken = Request.Headers["Bearer"];
+                payload = Authorize(accessToken);
+            }
+            catch (ApiException e)
+            {
+                return Unauthorized(new UnauthorizedError(e.Message));
+            }
+
+            try
+            {
+                Guid requesterId = Guid.Parse(payload["userId"].ToString());
+                List<Project> projectList = await _projectService.GetAllProjectsOfUser(requesterId);
+                return Ok(projectList);
+            }
+            catch(ApiException e)
+            {
                 return StatusCode(StatusCodes.Status500InternalServerError, new InternalServerError(e.Message));
             }
         }

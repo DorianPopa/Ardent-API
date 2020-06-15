@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Ardent_API.Repositories
 {
@@ -111,5 +113,14 @@ namespace Ardent_API.Repositories
             return project;
         }
 
+        public virtual async Task<List<Project>> GetProjectsForDesigner(Guid designerId)
+        {
+            return await _context.Projects.Where(p => p.Designer.Id == designerId).ToListAsync();
+        }
+
+        public virtual async Task<List<Project>> GetProjectsForClient(Guid clientId)
+        {
+            return await _context.Projects.Where(p => p.Client.Id == clientId).ToListAsync();
+        }
     }
 }

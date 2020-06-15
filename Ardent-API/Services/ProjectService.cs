@@ -4,6 +4,7 @@ using Ardent_API.Repositories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
@@ -196,6 +197,37 @@ namespace Ardent_API.Services
             {
                 byte[] fileBytes = await ReadProjectFiles(projectId);
                 return fileBytes;
+            }
+            catch(Exception e)
+            {
+                throw new ApiException(500, e.Message);
+            }
+        }
+
+        public async Task<List<Project>> GetAllProjectsOfUser(Guid requesterId)
+        {
+            User requester = await _userRepository.GetUserById(requesterId);
+            if (requester == null)
+            {
+                _logger.LogError("User with Id {0} not found", requester.Id);
+                throw new ApiException(404, "User with Id " + requester.Id + " not found");
+            }
+
+            List<Project> projectList = new List<Project>();
+            try
+            {
+                // Requester is designer
+                if (requester.Role == 1)
+                {
+                    projectList = await _projectRepository.GetProjectsForDesigner(requesterId);
+                }
+                // Requester is client
+                else if (requester.Role == 2)
+                {
+                    projectList = await _projectRepository.GetProjectsForClient(requesterId);
+                }
+
+                return projectList;
             }
             catch(Exception e)
             {
