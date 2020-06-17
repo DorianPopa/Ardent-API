@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using Ardent_API.Security;
 using Ardent_API.Services;
 using Ardent_API.Repositories;
+using Microsoft.AspNetCore.Http;
 
 namespace Ardent_API
 {
@@ -51,6 +52,13 @@ namespace Ardent_API
 
             services.AddTransient<UserRepository>();
             services.AddTransient<ProjectRepository>();
+
+            /*
+            services.AddHttpsRedirection(options => {
+                options.RedirectStatusCode = StatusCodes.Status308PermanentRedirect;
+                options.HttpsPort = 5001;
+            });
+            */
         }
 
 
@@ -62,7 +70,7 @@ namespace Ardent_API
                 app.UseDeveloperExceptionPage();
             }
 
-            app.UseHttpsRedirection();
+            //app.UseHttpsRedirection();
 
             app.UseRouting();
 
