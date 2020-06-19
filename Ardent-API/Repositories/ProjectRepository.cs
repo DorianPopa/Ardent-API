@@ -115,12 +115,24 @@ namespace Ardent_API.Repositories
 
         public virtual async Task<List<Project>> GetProjectsForDesigner(Guid designerId)
         {
-            return await _context.Projects.Where(p => p.Designer.Id == designerId).ToListAsync();
+            List<Project> projectList = await _context.Projects.Where(p => p.Designer.Id == designerId).ToListAsync();
+            foreach (Project p in projectList)
+            {
+                EntityEntry<Project> entry = _context.Entry(p);
+                entry.Reference(p => p.Client).Load();
+            }
+            return projectList;
         }
 
         public virtual async Task<List<Project>> GetProjectsForClient(Guid clientId)
         {
-            return await _context.Projects.Where(p => p.Client.Id == clientId).ToListAsync();
+            List<Project> projectList = await _context.Projects.Where(p => p.Client.Id == clientId).ToListAsync();
+            foreach(Project p in projectList)
+            {
+                EntityEntry<Project> entry = _context.Entry(p);
+                entry.Reference(p => p.Designer).Load();
+            }
+            return projectList;
         }
     }
 }
